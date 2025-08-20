@@ -8,25 +8,25 @@ Small n8n setup that reviews GitHub PRs with an LLM and labels them.
 ```bash
 docker compose up -d
 ```
-Open http://localhost:5678
+Editor: http://localhost:5678
 
 2) Import the workflow
-- In the editor, menu (≡) → "Import from file" → pick `My workflow 2.example.json` (sanitized).
-- Set credentials in the workflow (GitHub OAuth/App, LLM key).
-- The file `My workflow 2.json` may contain personal values. Prefer the `.example.json` when sharing.
+- Editor menu (≡) → "Import from file" → select `My workflow 2.example.json` .
+- Configure credentials in the workflow (GitHub OAuth/App, LLM key).
+- 
 
-## Cloudflare tunnel (to receive webhooks publicly)
+## Cloudflare tunnel (public webhooks)
 
-When you need a public URL (e.g., GitHub → n8n), create a temporary tunnel:
+For external webhooks, create a temporary Cloudflare Tunnel:
 
 ```bash
 # Install: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
 cloudflared tunnel --url http://localhost:5678
 ```
 
-Copy the generated URL, e.g. `https://abc123.trycloudflare.com`.
+Copy the generated URL, e.g., `https://abc123.trycloudflare.com`.
 
-Tell n8n to use it for webhooks by setting `WEBHOOK_URL` (so your Webhook node URLs are public):
+Set `WEBHOOK_URL` to the tunnel URL (used for webhook endpoints):
 
 ```yaml
 # docker-compose.yml → services.n8n.environment
@@ -41,21 +41,21 @@ docker compose up -d
 ```
 
 Notes:
-- Keep `N8N_HOST=localhost` for local. `WEBHOOK_URL` overrides only the external URLs used in nodes.
-- If you later deploy with your own domain + HTTPS, set `N8N_HOST=<domain>` and `N8N_PROTOCOL=https`.
+- Keep `N8N_HOST=localhost` for local. `WEBHOOK_URL` overrides only external URLs used in nodes.
+- For production with a domain + HTTPS, set `N8N_HOST=<domain>` and `N8N_PROTOCOL=https`.
 
 
 
 ## Use the example workflow
 
 1) Import `My workflow 2.example.json`.
-2) Edit placeholders in nodes:
+2) Update placeholders in nodes:
    - owner: `<your-github-username>`
    - repository: `<your-repo>`
-3) Set credentials inside n8n:
+3) Configure credentials in n8n:
    - GitHub (OAuth/App)
    - LLM provider key (for the Groq/OpenAI node you use)
-4) If testing via GitHub events from outside your machine, set a tunnel URL:
+4) For external testing, set a tunnel URL:
    - Add `WEBHOOK_URL=https://<your-tunnel>.trycloudflare.com` in `docker-compose.yml` and restart.
 5) Activate the workflow and open a test Pull Request in `<your-repo>`.
-6) Check n8n Executions for results and GitHub for comments/labels.
+6) Verify results in n8n Executions and in PR comments/labels.
