@@ -1,0 +1,8 @@
+n8n_data/
+*.log
+*.sqlite*
+*.journal
+*.sqlite-wal
+*.sqlite-shm
+.env
+.DS_Store

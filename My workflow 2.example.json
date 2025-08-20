@@ -1,0 +1,225 @@
+{
+  "name": "My workflow 2 (example)",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "owner": {
+          "__rl": true,
+          "value": "<your-github-username>",
+          "mode": "list"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "<your-repo>",
+          "mode": "list"
+        },
+        "events": [
+          "pull_request"
+        ],
+        "options": {}
+      },
+      "id": "eee4f59e-e85d-4909-a62f-f8c144f135d4",
+      "name": "PR Trigger",
+      "type": "n8n-nodes-base.githubTrigger",
+      "position": [
+        -144,
+        272
+      ],
+      "notesInFlow": false,
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/repos/{{$json.body.sender.login}}/{{$json.body.repository.name}}/pulls/{{$json.body.number}}/files",
+        "options": {}
+      },
+      "id": "2809b112-c63a-464f-9d29-ddc50eeb76d1",
+      "name": "Get file's Diffs from PR",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        80,
+        272
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "jsCode": "const files = $input.all().map(item => item.json);\n\nlet diffs = '';\n\nfor (const file of files) {\n  diffs += `### Fichier : ${file.filename}\\n\\n`;\n\n  if (file.patch) {\n    // Replace triple backticks to avoid markdown breaks\n    const safePatch = file.patch.replace(/```/g, "''");\n\n    diffs += \"```diff\\n\";\n    diffs += safePatch;\n    diffs += \"\\n```\\n\";\n  } else {\n    diffs += \"_No patch available (probably a binary file)._\";\n  }\n\n  diffs += \"\\n---\\n\\n\";\n}\n\nconst userMessage = `\nYou are a senior GENAI and WebTechnologies software developer. \nPlease review the following code changes in these files :\n\n${diffs}\n\n---\n\nYour mission:\n\n- Review the proposed code changes file by file and by significant modification.\n\n- Generate inline comments on the relevant lines of code.\n\n- Ignore files without patches.\n\n- Do not repeat the code snippet or the filename.\n\n- Write the comments directly, without introducing the context.\n`;\n\nreturn [\n  {\n    json: {\n      user_message: userMessage.trim()\n    }\n  }\n];"
+      },
+      "id": "97166cc6-25b6-458d-99d3-7c0776aa972c",
+      "name": "Create target Prompt from PR Diffs",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        304,
+        272
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "review",
+        "owner": {
+          "__rl": true,
+          "value": "<your-github-username>",
+          "mode": "list"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "<your-repo>",
+          "mode": "list"
+        },
+        "pullRequestNumber": "={{ $('PR Trigger').first().json.body.number }}",
+        "event": "comment",
+        "body": "={{ $json.output }}",
+        "additionalFields": {}
+      },
+      "id": "eb294532-057f-4c5b-9bbc-3f05f60b5e20",
+      "name": "GitHub Robot",
+      "type": "n8n-nodes-base.github",
+      "position": [
+        896,
+        272
+      ],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "edit",
+        "owner": {
+          "__rl": true,
+          "value": "<your-github-username>",
+          "mode": "list"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "<your-repo>",
+          "mode": "list"
+        },
+        "issueNumber": "={{ $('PR Trigger').first().json.body.number }}",
+        "editFields": {
+          "labels": [
+            {
+              "label": "ReviewedByAI"
+            }
+          ]
+        }
+      },
+      "id": "acd45a0b-fe29-4df8-84e0-e20df5da8cfd",
+      "name": "Add Label to PR",
+      "type": "n8n-nodes-base.github",
+      "position": [
+        1120,
+        272
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.user_message }}",
+        "options": {}
+      },
+      "id": "0eb8e954-f0f4-4bae-bf63-cc9ab59474c8",
+      "name": "Code Review Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        528,
+        272
+      ],
+      "typeVersion": 1.9
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        528,
+        448
+      ],
+      "id": "ee5b27ab-4bf3-495c-9840-7ba215bfd365",
+      "name": "Groq Chat Model"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "PR Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get file's Diffs from PR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GitHub Robot": {
+      "main": [
+        [
+          {
+            "node": "Add Label to PR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Review Agent": {
+      "main": [
+        [
+          {
+            "node": "GitHub Robot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get file's Diffs from PR": {
+      "main": [
+        [
+          {
+            "node": "Create target Prompt from PR Diffs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create target Prompt from PR Diffs": {
+      "main": [
+        [
+          {
+            "node": "Code Review Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Code Review Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
